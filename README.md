@@ -1,16 +1,25 @@
-## Hi there 👋
+# dtba3a-del
 
-<!--
-**dtba3a-del/dtba3a-del** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+Software-defined instrumentation researcher. Working on frontier capabilities for FX2-based oscilloscopes and measurement frontends.
 
-Here are some ideas to get you started:
+## Active Research
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+- **[CtPU-multi-curveXY](https://github.com/dtba3a-del/OpenHantek6022/tree/CtPU-multi-curveXY)** — Universal Measurement Frontend with physical unit conversion, multi-curve XY, and continuous recording
+- **RCL Broadband** — Wideband impedance analysis (in development)
+- **I/Q Decode** — SDR integration concepts (research phase)
+
+## Focus Areas
+
+- Software-defined instrumentation
+- Metrological frontends (CtPU/CCtPU calibration)
+- FX2 firmware alternatives (fx2adc)
+- Data acquisition and signal processing
+
+## Contact
+
+- Open an issue in relevant repository
+- GitHub Sponsors: [support the research](https://github.com/sponsors/dtba3a-del)
+
+---
+
+🔬 Independent research development · No corporate backing · Community-accelerated
