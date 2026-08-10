@@ -5,7 +5,7 @@
 [![Qt5](https://img.shields.io/badge/Qt-5.5+-green.svg)](https://www.qt.io)
 [![fx2adc](https://img.shields.io/badge/Firmware-fx2adc-orange.svg)](https://github.com/steve-m/fx2adc)
 
-&gt; **Research Preview.** CtPU-multi-curveXY is an experimental branch exploring the frontier of software-defined instrumentation. Capabilities evolve based on community signal and hardware feedback. Not recommended for safety-critical or certified metrology workflows without independent validation.
+ **Research Preview.** CtPU-multi-curveXY is an experimental branch exploring the frontier of software-defined instrumentation. Capabilities evolve based on community signal and hardware feedback. Not recommended for safety-critical or certified metrology workflows without independent validation.
 
 ---
 
@@ -65,11 +65,19 @@ Behavior may shift between releases as the architecture converges. For reproduci
 
 ---
 
-## Accelerate the Frontier
+## Access
 
-Iteration velocity depends on hardware access, metrological validation time, and the density of community signal. If this trajectory intersects with your instrumentation needs, participation is welcome — see `.github/FUNDING.yml` for requisites.
+The project operates on three levels. Each reflects a different relationship to the iteration cycle.
 
-This is not a pre-order, a feature purchase, or a service contract. It is opt-in participation in a research preview. Priority and co-design access are granted at the maintainer's discretion based on alignment with the research trajectory.
+**Research Preview** — GPL-3.0 source, self-service build, public evaluation snapshots. You have the full toolchain, the documentation, and the license. This is the frontier itself. No gatekeeping.
+
+**Frontier Access** — Validated binaries, working calibration modules, and early release candidates. Direct hardware feedback channel. Weighted roadmap input. For practitioners who need the iteration stream without the build overhead.
+
+Entry signal starts at $50. Granted at maintainer discretion based on trajectory alignment.
+
+**Protocol Partnership** — Co-design on experimental modules (RCL, I/Q, 3D), dedicated metrological validation cycles, and research partner recognition. For teams that need the research vector to intersect with their product roadmap.
+
+Custom allocation. Contact via requisites in `.github/FUNDING.yml`.
 
 ---
 
