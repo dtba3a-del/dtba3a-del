@@ -1,0 +1,12 @@
+# Все коммиты этого репозитория принадлежат автору профиля.
+# Инструмент авторства не имеет. Записи об инструменте в полях author и
+# committer сделаны конфигурацией инструмента, а не решением автора.
+#
+# Файл переопределяет отображение авторства во всех средствах git и в
+# списке участников на GitHub. Он НЕ переписывает объекты коммитов —
+# см. NOTICE.md.
+dtba3a <dtba3a@gmail.com> Claude <noreply@anthropic.com>
+dtba3a <dtba3a@gmail.com> Claude <dtba3a@gmail.com>
+dtba3a <dtba3a@gmail.com> Claude Opus 5 <noreply@anthropic.com>
+dtba3a <dtba3a@gmail.com> claude-ai <claude-ai@session>
+dtba3a <dtba3a@gmail.com> claude-ai <claude@anthropic.local>
