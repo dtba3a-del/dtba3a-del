@@ -136,7 +136,7 @@ import unicodedata
 import zipfile
 from dataclasses import dataclass, field
 
-VERSION = "2.0"
+VERSION = "2.1"
 
 # ===========================================================================
 # ОБЩИЙ КАНОН — В ТЕЛЕ ИНСТРУМЕНТА НАМЕРЕННО
@@ -527,6 +527,47 @@ def cmd_init(a) -> int:
 # ===========================================================================
 # export — выгрузка своей сессии
 # ===========================================================================
+def export_subagents(sids: list[str]) -> tuple[int, int]:
+    """Стенограммы подагентов (писателей и читателей) — дословно, целиком.
+
+    Дыра, замеренная 2026-09-06: `own_transcripts` берёт `<проект>/<сессия>.jsonl`,
+    а записи подагентов лежат на уровень глубже —
+    `<проект>/<сессия>/subagents/agent-<id>.jsonl`, и в выгрузку не попадали
+    НИКОГДА. В момент замера: 52 подагента, 104 файла (запись `*.jsonl` и
+    карточка `*.json` с типом и задачей), 22 МБ, только в песочнице.
+
+    Почему это не «кэш, который не жалко». В записи подагента лежит то, чего
+    нет ни в коде, ни в его отчёте: какие первоисточники он открыл, какие
+    отверг и почему остановился на этом числе. Ровно тот разбор, который по
+    канону проекта «не записан — значит не сделан». Отчёт подагента приходит
+    в чат сжатым и в чате же и пропадает.
+
+    Файл подагента дописывается, пока подагент жив, и больше не меняется,
+    когда он закончил. Поэтому правило простое: копируем, если размер
+    отличается от уже лежащего. Ничего не режем на куски — эти записи
+    на порядок короче стенограммы чата.
+    """
+    if not CLAUDE_PROJECTS.exists():
+        return (0, 0)
+    dst_root = CHATLOG / "subagents"
+    copied = skipped = 0
+    for sid in sids:
+        for proj in CLAUDE_PROJECTS.iterdir():
+            src_dir = proj / sid / "subagents"
+            if not src_dir.is_dir():
+                continue
+            dst_dir = dst_root / sid
+            for src in sorted(src_dir.glob("*.json")) + sorted(src_dir.glob("*.jsonl")):
+                dst = dst_dir / src.name
+                if dst.exists() and dst.stat().st_size == src.stat().st_size:
+                    skipped += 1
+                    continue
+                dst_dir.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(src.read_bytes())   # дословно, как записано
+                copied += 1
+    return (copied, skipped)
+
+
 def cmd_export(a) -> int:
     banner("стенограмма не перерабатывается (только нарезка и sha256); "
            "пишем ТОЛЬКО файлы своей сессии — главного чата нет")
@@ -626,6 +667,10 @@ def cmd_export(a) -> int:
                 fh.write(json.dumps(p, ensure_ascii=False) + "\n")
         print(f"{sid}: строк {len(lines)}, кусков {len(man['parts'])}, "
               f"распоряжений {st['prompts']} (врезок {st['inserts']})")
+
+    copied, skipped = export_subagents([f.stem for f in files])
+    if copied or skipped:
+        print(f"подагенты: скопировано {copied}, уже лежало {skipped}")
 
     print("\nГотово. Тронуты только файлы своей сессии — общих нет. Дальше:")
     print("  chatman sessions")
@@ -1187,6 +1232,194 @@ def cmd_rules(a) -> int:
     return 0
 
 
+# ===========================================================================
+# known — «а у нас это уже есть?»
+#
+# ЗАЧЕМ ОТДЕЛЬНАЯ КОМАНДА, А НЕ ЕЩЁ ОДНО ПРАВИЛО
+#
+# Правило «не переоткрывай известное» стоит ПЕРВЫМ пунктом канона проекта.
+# 2026-08-22 оно было нарушено исполнителем, который час искал в сети то,
+# что лежало в репозитории: имя изготовителя `YiXingDianZi` (записано в
+# `references/dll-exports/DLL_API.md`), поколения PID (в
+# `references/README.md`), китайское руководство и `libvdso.so` (в архивах
+# `references/vendor/`). Часть этого он же выводил в этой же сессии
+# четырьмя днями раньше.
+#
+# Правил в проекте к тому дню было 46 в трёх канонах плюс два десятка
+# документов с предписаниями. Сорок седьмое ничего бы не изменило:
+# правило, которое надо ВСПОМНИТЬ, уже проиграло. Поэтому вместо правила
+# заведена команда, которая отвечает на вопрос за две секунды, — её
+# дешевле выполнить, чем вспомнить запрет.
+#
+# Ищет по трём хранилищам знания сразу:
+#   references/  — первоисточники, заметки, дампы, архивы вендоров
+#   chatlog/     — дословные стенограммы своих сессий
+#   context-export/ — стенограммы чатов другой среды
+# плюс по коду и документам репозитория.
+# ===========================================================================
+def cmd_known( a ) -> int:
+    # Запрос — это НАБОР слов, а не фраза. Первая редакция искала
+    # " ".join(query) целиком и на живом запросе из хука молчала: строки
+    # «YiXingDianZi YX-DSO manufacturer» в репозитории нет, а каждое слово
+    # по отдельности есть. Ищем пословно, за ОДИН обход дерева: обход стоит
+    # ~1.5 с, и умножать его на число слов нельзя.
+    raw = " ".join( a.query )
+    print( f"ЗАПРОС: {raw}\nОБЛАСТЬ: {ROOT}\n" )
+
+    # Слова короче трёх букв ничего не сужают; иероглиф несёт слово целиком,
+    # поэтому для не-латиницы порог — два знака. Служебные слова запроса
+    # выкидываем: они есть везде и только шумят.
+    STOP = { "the", "and", "for", "with", "what", "how", "site", "pdf", "usb",
+             "driver", "download", "manual", "datasheet", "github", "http",
+             "https", "www", "com", "org", "net",
+             # мусор из URL: в запрос попадает целиком .url, и его служебные
+             # части нашлись бы в репозитории при любом запросе
+             "html", "htm", "php", "index", "wiki", "page", "aspx", "cgi" }
+    words, seen = [], set()
+    for w in re.split( r"[^\w一-鿿-]+", raw ):
+        w = w.strip( "-" ).lower()
+        if not w or w in seen or w in STOP:
+            continue
+        cjk = any( "一" <= ch <= "鿿" for ch in w )
+        if len( w ) < ( 2 if cjk else 3 ):
+            continue
+        seen.add( w )
+        words.append( w )
+    # Запрос вроде "XY.py" распадается на двухбуквенные куски, и порог длины
+    # съедает оба — инструмент молчал там, где в репозитории пять файлов.
+    # Если после отсева не осталось ничего, ищем исходную строку целиком:
+    # короткий запрос — это обычно имя файла или обозначение, а не общее слово.
+    if not words:
+        w = raw.strip().lower()
+        if w:
+            words = [ w ]
+            print( f"(запрос короткий — ищется целиком: {w!r})\n" )
+    if not words:
+        print( "ВЫВОД: из запроса нечего искать — внешний поиск оправдан." )
+        return 1
+
+    keys = [ ( w, w.encode() ) for w in words ]
+    per_word = { w: 0 for w in words }
+    file_hits: dict = {}      # путь -> набор совпавших слов
+    archive_hits: list = []
+    scanned = 0
+
+    skip = { ".git", "build", "node_modules", "__pycache__" }
+    binary = { ".pdf", ".png", ".jpg", ".jpeg", ".ico", ".so", ".dll",
+               ".exe", ".sqlite", ".gz", ".xz", ".bz2" }
+    for path in ROOT.rglob( "*" ):
+        if not path.is_file():
+            continue
+        rel = path.relative_to( ROOT )
+        if any( part in skip for part in rel.parts ):
+            continue
+        suffix = path.suffix.lower()
+        if suffix in ( ".zip", ".7z" ):
+            # архивы: имена внутри, без распаковки
+            try:
+                import zipfile
+                with zipfile.ZipFile( path ) as z:
+                    names = z.namelist()
+            except Exception:
+                continue
+            for name in names:
+                low = name.lower()
+                hit = [ w for w, _ in keys if w in low ]
+                if hit:
+                    archive_hits.append( ( f"{rel} ! {name}", hit ) )
+            continue
+        if suffix in binary:
+            continue
+        try:
+            if path.stat().st_size > 40 * 1024 * 1024:
+                continue
+            data = path.read_bytes().lower()
+        except Exception:
+            continue
+        scanned += 1
+        # Совпадение по ИМЕНИ файла считается наравне с содержимым: запрос
+        # "XY.py" ищет прежде всего сам файл, а не упоминания о нём.
+        low_name = str( rel ).lower()
+        got = { w for w, b in keys if b in data or w in low_name }
+        if got:
+            file_hits[ str( rel ) ] = got
+            for w in got:
+                per_word[ w ] += 1
+
+    # Слово, встречающееся в сотнях наших файлов, находкой не является:
+    # "oscilloscope" или "example" есть у нас всегда. Вердикт выносим только
+    # по избирательным словам. Первая редакция этого не делала и на запросе
+    # про квантовую телепортацию (URL дал слово example) отрапортовала «уже
+    # есть» — ложное срабатывание, которое обесценивает хук: механизм,
+    # кричащий всегда, читается как молчание.
+    # Порог 3 % просмотренного: при 897 файлах это 26. Первая редакция
+    # ставила 15 % (134) — и слова example/html из URL-заглушки проходили
+    # как избирательные, давая ложное «уже есть».
+    common_at = max( 12, int( scanned * 0.03 ) )
+    selective = [ w for w in words if 0 < per_word[ w ] <= common_at ]
+    # Отсев по избирательности имеет смысл, только когда есть из чего
+    # отсеивать. Запрос из одного слова — это и есть предмет поиска: объявив
+    # его «общим», инструмент выносил вердикт «не найдено» при 44 попаданиях.
+    if len( words ) == 1 and per_word[ words[ 0 ] ]:
+        selective = list( words )
+
+    print( f"── по словам ── (просмотрено файлов: {scanned})" )
+    for w in words:
+        if per_word[ w ] == 0:
+            mark = "нет"
+        elif w in selective:
+            mark = f"{per_word[w]} файл(ов)"
+        else:
+            mark = f"{per_word[w]} файл(ов) — общее, не показатель"
+        print( f"    {w:<24} {mark}" )
+    print()
+
+    # Ранжируем по числу совпавших ИЗБИРАТЕЛЬНЫХ слов: файл, где сошлись все
+    # редкие ключи, весомее сотни файлов с одним общим словом.
+    sel = set( selective )
+    def weight( got ): return len( got & sel )
+    def in_name( path ):
+        low = path.lower()
+        return sum( 1 for w in sel if w in low )
+    # Файл, чьё ИМЯ содержит искомое, ставится выше файлов, которые лишь
+    # упоминают его: на запрос "XY.py" нужен сам скрипт, а не стенограммы.
+    best = sorted( file_hits.items(),
+                   key = lambda kv: ( -in_name( kv[ 0 ] ), -weight( kv[ 1 ] ), -len( kv[ 1 ] ), kv[ 0 ] ) )
+    top = weight( best[ 0 ][ 1 ] ) if best else 0
+
+    print( f"── файлы ── {len(file_hits)}   (лучшее совпадение: {top} из {len(selective)} избирательных слов)" )
+    for name, got in best[ : a.limit ]:
+        print( f"    [{weight(got)}/{len(selective)}] {name}   <- " + ", ".join( sorted( got ) ) )
+    if len( best ) > a.limit:
+        print( f"    … ещё {len(best) - a.limit}" )
+    print()
+
+    if archive_hits:
+        arc = sorted( archive_hits, key = lambda kv: -weight( set( kv[ 1 ] ) ) )
+        print( f"── в архивах (по именам внутри) ── {len(arc)}   (распаковка не требуется)" )
+        for name, got in arc[ : a.limit ]:
+            print( f"    [{weight(set(got))}/{len(selective)}] {name}" )
+        if len( arc ) > a.limit:
+            print( f"    … ещё {len(arc) - a.limit}" )
+        print()
+
+    # Порог: избирательные слова должны сойтись В ОДНОМ файле. Два редких
+    # слова порознь — это два разных сюжета, а не наш ответ.
+    if not selective:
+        need = 1 + top          # заведомо недостижимо: искать нечем
+    elif len( selective ) <= 2:
+        need = len( selective )
+    else:
+        need = -( -2 * len( selective ) // 3 )
+
+    if top >= need:
+        print( "ВЫВОД: это у нас УЖЕ ЕСТЬ. Читать своё, прежде чем искать снаружи." )
+        return 0
+    print( "ВЫВОД: в репозитории не найдено — внешний поиск оправдан." )
+    print( "       После находки: записать сюда, иначе следующий чат будет искать заново." )
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         prog="chatman",
@@ -1240,11 +1473,15 @@ def main() -> int:
     s.add_argument("--step", default="nfkc,case,hyphen,space,homoglyph")
     s.add_argument("--fuzzy", type=int, default=0, metavar="d")
 
+    k = sub.add_parser("known", help="а у нас это уже есть? (перед внешним поиском)")
+    k.add_argument("query", nargs="+", help="что ищем: имя, идентификатор, термин")
+    k.add_argument("--limit", type=int, default=12, help="сколько попаданий печатать")
+
     a = ap.parse_args()
     return {"rules": cmd_rules, "install": cmd_install, "doctor": cmd_doctor,
             "init": cmd_init, "export": cmd_export, "sessions": cmd_sessions,
             "repos": cmd_repos, "find": cmd_find, "verify": cmd_verify,
-            "search": cmd_search}[a.cmd](a)
+            "search": cmd_search, "known": cmd_known}[a.cmd](a)
 
 
 if __name__ == "__main__":
