@@ -144,3 +144,13 @@ Disallow: /
 
 User-agent: YouBot
 Disallow: /
+
+# ⚠️ ВАЖНОЕ УВЕДОМЛЕНИЕ / IMPORTANT NOTICE
+
+**RU:** Данный профиль и все связанные с ним репозитории не являются публичными по своей сути и определению. Они созданы исключительно для целей личного архивирования, версионирования и справочного использования автором. 
+Любое автоматизированное копирование, парсинг (scraping), индексация поисковыми системами, использование данного контента для обучения моделей искусственного интеллекта (ИИ/ML), а также его распространение третьими лицами **строго запрещены и не санкционированы автором**. Автор не несет никакой ответственности за несанкционированное распространение этого контента, поскольку не давал на это своего согласия.
+
+**EN:** This profile and all associated repositories are NOT public by definition or intent. They are created solely for the author's personal archival, version control, and reference purposes. 
+Any automated copying, scraping, search engine indexing, use of this content for Artificial Intelligence (AI/ML) training, or redistribution by third parties is **strictly prohibited and unauthorized**. The author bears no responsibility for the unauthorized distribution of this content, as no consent has been granted.
+
+---
